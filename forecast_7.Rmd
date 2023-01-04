@@ -1,0 +1,168 @@
+---
+title: "예측방법론 7장"
+output: html_notebook
+---
+
+### 1. 관련된 패키지 불러오기
+
+```{r, message=FALSE, eval=FALSE, results='hide'}
+list_packages = c("forecast", "lubridate", "quantmod", "readxl", "reshape2", "scales", "tidyverse","xts", "zoo", "tseries", "urca","TSA", "tseries", "mFilter", "car", "dsa", "seasonal")
+
+new_packages  = list_packages[!(list_packages %in% installed.packages()[,"Package"])]
+if(length(new_packages)) install.packages(new_packages)
+
+invisible(lapply(list_packages, library, character.only = TRUE))
+
+```
+
+#### 그림 7-1　일별 최대전력사용량의 추이
+
+```{r}
+library(dsa)
+library(timetk)
+max_elec = read_excel("./data/데이터.xlsx", sheet="최대전력사용량") %>% 
+           mutate(date = make_date(년, 월, 일)) 
+var_1 = max_elec$최대전력/1000; name_1 = "최대 전력사용량"
+
+max_elec %>%
+plot_time_series(date, 최대전력/1000, .interactive = FALSE, 
+                   .color_var = 년, .smooth_size=1.2,
+                   # Customization
+                   .title = paste0(name_1, "의 연도별도표"),
+                   .x_lab = "", .y_lab = "", .legend_show = FALSE) +
+  scale_y_continuous(labels = scales::comma_format())
+```
+
+#### 그림 7-2　일별 최대전력사용량의 계절변동 : R 화면에서 그리면 크게 그릴 수 있음
+
+```{r}
+max_elec %>%
+  plot_seasonal_diagnostics(date, 최대전력/1000, 
+                            .title = paste0(name_1, "의 주기별 상자그림"), 
+                            .interactive = FALSE)
+```
+
+#### 그림 7-3　GDP 원계열의 고전적 분해
+```{r}
+GDP = read_excel("./data/데이터.xlsx", sheet="GDP")  
+gdp_o = GDP[,3] /1000
+
+gdp_ts = gdp_o %>% ts(start=1960, frequency=4) %>% window(start=1970)
+
+gdp_ts %>% decompose(type="multiplicative") %>%
+  autoplot() + xlab("") + ylab("") + ggtitle("") + theme_bw() 
+```
+#### 그림 7-4　GDP의 분해
+```{r}
+GDP = read_excel("./data/데이터.xlsx", sheet="GDP")  
+GDP_ts = GDP[,2:3] %>% ts(start=1960, frequency=4) %>% window(start=1970)
+gdp = GDP_ts[,2]
+gdp_sa = GDP_ts[,1]
+
+#plot(gdp/1000, ylab="GDP", xlab="", col="steelblue")
+#lines(gdpsa, col=2)
+
+# GDP 변동요인 분해 
+ lgdp.hp = mFilter(log(gdp_sa),filter="HP")   # Hodrick-Prescott filter
+ gdp_t = exp(lgdp.hp$trend)
+ gdpsam = exp((log(gdp_sa)+stats::lag(log(gdp_sa),-1)+stats::lag(log(gdp_sa),1))/3)
+ gdp_s = gdp/gdp_sa*100
+ gdp_i = gdp_sa/gdpsam*100
+ gdp_c = gdpsam/gdp_t*100
+
+par(mfrow=c(2,2))
+plot(gdp_t/1000, main="추세변동", col="steelblue", xlab="", ylab="")
+plot(gdp_c, main="순환변동", col="steelblue", xlab="", ylab="")
+ abline(a=100, b=0, lty=2, col="gray")
+plot(gdp_s, main="계절변동", col="steelblue", xlab="", ylab="")
+ abline(a=100, b=0, lty=2, col="gray")
+plot(gdp_i, main="불규칙변동", col="steelblue", xlab="", ylab="")
+ abline(a=100, b=0, lty=2, col="gray")
+ 
+par(mfrow=c(1,1))
+```
+#### 그림 7-6　GDP 원계열과 계절조정계열
+
+```{r}
+ plot(gdp/1000, ylab="GDP(조원)", xlab="")
+  lines(gdp_sa/1000, col=2)
+ legend("topleft", col=c(1, 2), lty=1, c("원계열", "계절조정계열"),  bty = "n")
+```
+
+#### 그림 7-10　RegARIMA 모형의 추정결과
+#### 그림 7-11　국내총생산의 계절조정 결과
+```{r}
+library(seasonal)
+
+sa_gdp= seas(gdp/1000, x11.appendfcst = "yes", regression.variables=NULL, regression.aictest = NULL, x11 = list())
+
+summary(sa_gdp)
+spc(sa_gdp)
+out(sa_gdp)
+gdp_sa_n = final(sa_gdp)
+plot(sa_gdp)
+```
+#### 그림 7-12　국내총생산의 STL 분해
+#### 그림 7-13　STL을 이용한 국내총생산의 계절조정 결과
+
+```{r}
+GDP = read_excel("./data/데이터.xlsx", sheet="GDP")  
+GDP_ts = GDP[,2:3] %>% ts(start=1960, frequency=4) %>% window(start=1970)
+gdp = GDP_ts[,2]
+gdp_stl = stl(log(gdp), s.window = 7, robust=TRUE) 
+plot(gdp_stl)
+
+seasonal = gdp_stl$time.series[,1]
+gdp_stl_sa = gdp/exp(seasonal)
+plot(gdp_stl_sa/1000, xlab="", ylab="GDP(조원)", col=2)
+ lines(gdp/1000, col=1)
+ legend("topleft", col=c(1, 2), lty=1, c("원계열", "계절조정계열"),  bty = "n")
+ 
+#fcast <- stlf(gdp/1000, method='naive')
+#plot(fcast) 
+```
+
+#### 그림 7-14 일별 최대전력사용량의 계절조정 결과
+#### 시간이 많이 들고 저작권 문제로 비공개
+#### 그림 7-16　회귀분석법에 의한 GDP 추세변동계열
+```{r}
+GDP = read_excel("./data/데이터.xlsx", sheet="GDP")
+GDP_ts = GDP[,2:3] %>% ts(start=1960, frequency=4) %>% window(start=1970)
+gdp = GDP_ts[,2]
+gdp_sa = GDP_ts[,1]
+
+time = 1:length(gdp_sa)
+time2 = time*time
+gdp.reg = tslm(gdp/1000 ~ time + time2, lambda=0)
+
+plot(gdp/1000, ylab="GDP", xlab="", col="steelblue")
+ lines(fitted(gdp.reg), col="red")
+ legend("topleft", col=c(1, 2), lty=1, c("GDP", "추세"),  bty = "n")
+
+summary(gdp.reg)
+```
+
+#### 그림 7-18　HP 필터에 의한 GDP 추세변동 계열
+
+```{r}
+lgdp.hp = mFilter(log(gdp_sa),filter="HP")   # Hodrick-Prescott filter
+gdp_t = exp(lgdp.hp$trend)
+plot(gdp/1000, ylab="GDP", xlab="", col="steelblue")
+ lines(gdp_t/1000, col="red")
+ legend("topleft", col=c(1, 2), lty=1, c("GDP", "추세"),  bty = "n")
+```
+####  그림 7-18　GDP의 순환변동계열
+
+```{r}
+gdpsam = exp((log(gdp_sa)+stats::lag(log(gdp_sa),-1)+stats::lag(log(gdp_sa),1))/3)
+ gdp_c = gdpsam/gdp_t*100
+plot(gdp_c, xlab="", ylab="", col="steelblue")
+ abline(a=100, b=0, col="gray", lty=2)
+```
+
+####  그림 7-19　GDP의 순환변동계열
+```{r}
+bk_gdp = bkfilter(log(gdp_sa), pl=12,pu=24)
+plot(exp(bk_gdp$cycle)*100, xlab="", ylab="", col="steelblue")
+ abline(a=100, b=0, col="gray", lty=2)
+```

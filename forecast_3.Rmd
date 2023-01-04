@@ -1,0 +1,118 @@
+---
+title: "예측방법론 3장"
+output: html_notebook
+---
+
+### 1. 관련된 패키지 불러오기
+
+```{r, message=FALSE, eval=FALSE, results='hide'}
+list_packages = c("forecast", "lubridate", "quantmod", "readxl", "reshape2", "scales", "tidyverse","xts", "zoo")
+
+new_packages  = list_packages[!(list_packages %in% installed.packages()[,"Package"])]
+if(length(new_packages)) install.packages(new_packages)
+
+invisible(lapply(list_packages, library, character.only = TRUE))
+
+```
+
+### 제3장
+
+#### 그림 3-2 백색잡음계열과 시계열도표, 상관도표와 부분상관도표
+####  <프로그램 3-1>
+```{r}
+set.seed(123456)
+nn = 52*4
+wn = ts(rnorm(nn), start=1970, frequency=4)
+
+plot(wn, main="", xlab="", ylab="백색잡음", col="steelblue")
+ abline(h=0, lty=2, col="gray")
+acf(wn, main="", col="steelblue", xlab="")
+pacf(wn, main="", col="steelblue", xlab="")
+
+Box.test(wn,lag=8, type="Ljung")
+wn  %>% ggtsdisplay(main="", theme=theme_bw())
+
+```
+
+####  3-3 sin 계열의 시계열도표, 상관도표와 부분상관도표
+
+```{r}
+ set.seed(123456)
+ nn=  52*4
+ sin = ts(sin(1:nn/nn*12*pi), start=1970, frequency=4) + rnorm(nn)
+ sin  %>% ggtsdisplay(main="", theme=theme_bw())
+ #par(mfrow=c(2,1))
+ #plot(sin, main="", xlab="", ylab="sin", col="steelblue")
+ # abline(h=0, lty=2, col="gray")
+ # acf(sin, main="", col="steelblue")
+ # acf(sin, main="", col="steelblue", xlab="", type="partial")
+```
+####  3-4 이동평균계열의 시계열도표, 상관도표와 부분상관도표
+
+```{r}
+set.seed(123456)
+ nn=  52*4
+masim1 = ts(arima.sim(list(order = c(0,0,1), ma = 0.6), n = nn), start=1970, freq=4)
+masim1  %>% ggtsdisplay(main="", theme=theme_bw())
+```
+#### 그림 3-5 확률보행계열의 시계열도표, 상관도표와 부분상관도표
+
+```{r}
+set.seed(123456)
+ nn=  52*4
+ rw = rnorm(nn)
+ wn = rnorm(nn)
+ 
+ for (t in 2:nn){
+   rw[t] = 0.05 + rw[t-1] + wn[t] 
+ }   
+ 
+rw_ts = ts(rw, start=1960, frequency=4)
+rw_ts %>% ggtsdisplay(main="", theme=theme_bw())
+
+```
+
+#### 그림 3-6　GDP 원계열의 시계열도표, 상관도표와 부분상관도표
+
+```{r}
+gdp = read_excel("./data/데이터.xlsx", sheet="GDP")
+#date_q  = seq(as.Date("1960-01-01"), as.Date("2022-04-01"), "quarter") 
+gdp_ts1 = ts(gdp[,3]/1000, start=1960, frequency=4)
+gdp_ts = window(gdp_ts1, start=2000)
+gdp_ts %>% ggtsdisplay(main="", theme=theme_bw())
+
+```
+#### 그림 3-7 GDP 로그차분계열의 시계열도표, 상관도표와 부분상관도표
+
+```{r}
+gdp = read_excel("./data/데이터.xlsx", sheet="GDP")
+#date_q  = seq(as.Date("1960-01-01"), as.Date("2022-04-01"), "quarter") 
+gdp_ts = ts(gdp[,3]/1000, start=1960, frequency=4)
+dlgdp_ts =  window(diff(log(gdp_ts)), start=2000)
+dlgdp_ts %>% ggtsdisplay(main="", theme=theme_bw())
+```
+
+#### 그림 3-8 GDP 로그 4차 차분계열의 시계열도표, 상관도표와 부분상관도표
+
+```{r}
+gdp = read_excel("./data/데이터.xlsx", sheet="GDP")
+#date_q  = seq(as.Date("1960-01-01"), as.Date("2022-04-01"), "quarter") 
+gdp_ts = ts(gdp[,3]/1000, start=1960, frequency=4)
+dlgdp4_ts = window(diff(log(gdp_ts),4), start=2000)
+dlgdp4_ts %>% ggtsdisplay(main="", theme=theme_bw())
+
+```
+```{r}
+# 표
+gdp_ts1 = ts(gdp[,3]/1000, start=1960, frequency=4)
+gdp_ts = window(gdp_ts1, start=2000)
+Box.test(wn,lag=8, type="Ljung")
+Box.test(masim1,lag=8, type="Ljung")
+Box.test(sin,lag=8, type="Ljung")
+Box.test(rw_ts,lag=8, type="Ljung")
+Box.test(gdp_ts,lag=8, type="Ljung")
+Box.test(diff(log(gdp_ts)),lag=8, type="Ljung")
+Box.test(diff(log(gdp_ts),4),lag=8, type="Ljung")
+
+```
+

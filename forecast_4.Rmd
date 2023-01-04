@@ -1,0 +1,323 @@
+---
+title: "예측방법론 4장"
+output: html_notebook
+---
+
+### 1. 관련된 패키지 불러오기
+
+```{r, message=FALSE, eval=FALSE, results='hide'}
+list_packages = c("forecast", "lubridate", "quantmod", "readxl", "reshape2", "scales", "tidyverse","xts", "zoo")
+
+new_packages  = list_packages[!(list_packages %in% installed.packages()[,"Package"])]
+if(length(new_packages)) install.packages(new_packages)
+
+invisible(lapply(list_packages, library, character.only = TRUE))
+
+```
+
+### 제4장
+
+#### 그림 4-1 AR(1) 모형의 이론적 특징
+
+```{r}
+pp1 = 0.6
+par(mfrow=c(1,1))
+rho1 = function(p1, h){p1^h }
+
+plot(1:8,rho1(pp1,1:8), type="h", xlab="시차", ylab="자기상관계수", lwd=2, ylim=c(-1,1))
+abline(h=0)
+
+phi1 = rep(0,8)
+phi1[1] = rho1(pp1,1)
+plot(1:8,phi1, type="h", xlab="시차", ylab="부분자기상관계수", lwd=2,ylim=c(-1,1))
+abline(h=0)
+
+w = seq(0,pi,0.01)
+fw = 1/pi/(1-2*pp1*cos(w)+pp1^2)
+plot(w, fw, type="l", xlab="주파수", ylab="스펙트럼")
+
+```
+
+```{r}
+pp1 = -0.6
+par(mfrow=c(1,1))
+rho1 = function(p1, h){p1^h }
+
+plot(1:8,rho1(pp1,1:8), type="h", xlab="시차", ylab="자기상관계수", lwd=2, ylim=c(-1,1))
+abline(h=0)
+
+phi1 = rep(0,8)
+phi1[1] = rho1(pp1,1)
+plot(1:8,phi1, type="h", xlab="시차", ylab="부분자기상관계수", lwd=2,ylim=c(-1,1))
+abline(h=0)
+
+w = seq(0,pi,0.01)
+fw = 1/pi/(1-2*pp1*cos(w)+pp1^2)
+plot(w, fw, type="l", xlab="주파수", ylab="스펙트럼")
+
+```
+####  4-2 AR(1)모형 생성 시계열의 특징
+
+```{r}
+set.seed(123456)
+ nn = 200
+ar1_sim = ts(arima.sim(list(order = c(1,0,0), ar = 0.6), n = nn))
+
+plot(ar1_sim, main="", xlab="", ylab="AR(1)=0.6", col="steelblue")
+ #abline(h=0, lty=2, col="gray")
+acf(ar1_sim, main="", col="steelblue")
+acf(ar1_sim, main="", col="steelblue", xlab="", type="partial")
+spectrum(ar1_sim, spans=c(3,3), main="")
+```
+```{r}
+set.seed(123456)
+ nn = 200
+ar1_sim = ts(arima.sim(list(order = c(1,0,0), ar = -0.6), n = nn))
+
+plot(ar1_sim, main="", xlab="", ylab="AR(1)=-0.6", col="steelblue")
+ #abline(h=0, lty=2, col="gray")
+acf(ar1_sim, main="", col="steelblue")
+acf(ar1_sim, main="", col="steelblue", xlab="", type="partial")
+spectrum(ar1_sim, spans=c(3,3), main="")
+```
+
+####  그림 4-3 MA(1) 모형의 이론적 특징
+
+```{r}
+pp1 = 0.6
+
+phi1 = function(p1, h) { p1^h*(1-p1^2)/(1-p1^(2*(h+1)))}
+phi = phi1(pp1,1:8)
+rho = rep(0,8)
+rho[1] = phi[1]
+
+plot(1:8,rho, type="h", xlab="시차", ylab="자기상관계수", lwd=2,ylim=c(-1,1))
+abline(h=0)
+
+plot(1:8,phi, type="h", xlab="시차", ylab="부분자기상관계수", lwd=2, ylim=c(-1,1))
+abline(h=0)
+
+w = seq(0,pi,0.01)
+fw = 1/pi*(1+2*pp1/(1+pp1^2)*cos(w))
+plot(w, fw, type="l", xlab="주파수", ylab="스펙트럼")
+
+```
+```{r}
+pp1 = -0.6
+
+phi1 = function(p1, h) { p1^h*(1-p1^2)/(1-p1^(2*(h+1)))}
+phi = phi1(pp1,1:8)
+rho = rep(0,8)
+rho[1] = phi[1]
+
+plot(1:8,rho, type="h", xlab="시차", ylab="자기상관계수", lwd=2,ylim=c(-1,1))
+abline(h=0)
+
+plot(1:8,phi, type="h", xlab="시차", ylab="부분자기상관계수", lwd=2, ylim=c(-1,1))
+abline(h=0)
+
+w = seq(0,pi,0.01)
+fw = 1/pi*(1+2*pp1/(1+pp1^2)*cos(w))
+plot(w, fw, type="l", xlab="주파수", ylab="스펙트럼")
+
+```
+####  4-4 MA(1)모형 생성 시계열의 특징
+
+```{r}
+set.seed(123456)
+ nn = 200
+ma1_sim = ts(arima.sim(list(order = c(0,0,1), ma = 0.6), n = nn))
+
+plot(ma1_sim, main="", xlab="", ylab="MA(1)=0.6", col="steelblue")
+ #abline(h=0, lty=2, col="gray")
+acf(ma1_sim, main="", col="steelblue")
+acf(ma1_sim, main="", col="steelblue", xlab="", type="partial")
+spectrum(ma1_sim, spans=c(3,3), main="")
+```
+
+```{r}
+set.seed(123456)
+ nn = 200
+ma1_sim = ts(arima.sim(list(order = c(0,0,1), ma = -0.6), n = nn))
+
+plot(ma1_sim, main="", xlab="", ylab="MA(1)=-0.6", col="steelblue")
+ #abline(h=0, lty=2, col="gray")
+acf(ma1_sim, main="", col="steelblue")
+acf(ma1_sim, main="", col="steelblue", xlab="", type="partial")
+spectrum(ma1_sim, spans=c(3,3), main="")
+```
+#### 그림 4-5　ARMA(1,1) 모형에서 생성된 시계열의 특징
+
+```{r}
+set.seed(123456)
+ nn = 200
+arima1_sim = ts(arima.sim(list(order = c(1,0,1), ar = 0.6, ma = 0.6), n = nn))
+
+plot(arima1_sim, main="", xlab="", ylab="ARIMA(1,1,1)", col="steelblue")
+
+acf(arima1_sim, main="", col="steelblue")
+acf(arima1_sim, main="", col="steelblue", xlab="", type="partial")
+spectrum(arima1_sim, spans=c(3,3), main="")
+```
+```{r}
+set.seed(123456)
+ nn = 200
+arima1_sim = ts(arima.sim(list(order = c(1,0,1), ar = -0.6, ma = -0.6), n = nn))
+
+plot(arima1_sim, main="", xlab="", ylab="ARIMA(1,1,1)", col="steelblue")
+acf(arima1_sim, main="", col="steelblue")
+pacf(arima1_sim, main="", col="steelblue")
+spectrum(arima1_sim, spans=c(3,3), main="")
+```
+
+#### 그림 4-6　확률보행모형 시계열의 추이
+
+```{r}
+set.seed(123456)
+ nn = 200
+v1 = rnorm(nn,0,1)    
+rwsim1 = ts(cumsum(v1))
+v2 = rnorm(nn,0.05,1)    
+rwsim2 = ts(cumsum(v2))
+
+plot(rwsim2, main="", xlab="", ylab="", col="steelblue", ylim=c(-10,30))
+ lines(rwsim1, col="red")
+ abline(h=0, lty=2, col="gray")
+```
+#### 그림 4-7　확률보행모형에서 생성된 시계열의 특징
+
+```{r}
+acf(rwsim1 , main="", col="steelblue")
+pacf(rwsim1 , main="", col="steelblue", xlab="")
+spectrum(rwsim1, spans=c(3,3), main="")
+
+acf(rwsim2 , main="", col="steelblue")
+pacf(rwsim2 , main="", col="steelblue", xlab="")
+spectrum(rwsim2, spans=c(3,3), main="")
+```
+#### 그림 4-8 ARIMA(1,1,1) 모형에서 생성된 시계열의 특징
+#### <프로그램 4-1>
+
+```{r}
+set.seed(123456); nn = 200
+arima1_sim = ts(arima.sim(list(order=c(1,1,1), ar=0.6, ma=0.6),
+n=nn))
+plot(arima1_sim, main="", xlab="", ylab="ARIMA(1,1,1)",
+ col="steelblue")
+acf(arima1_sim, main="", col="steelblue")
+pacf(arima1_sim, main="", col="steelblue")
+spectrum(arima1_sim, spans=c(3,3), main="")
+```
+
+
+
+```{r}
+set.seed(123456); nn = 200
+arima1_sim = ts(arima.sim(list(order=c(1,1,1), ar=-0.6, ma=-0.6),
+n=nn))
+plot(arima1_sim, main="", xlab="", ylab="ARIMA(1,1,1)",
+ col="steelblue")
+acf(arima1_sim, main="", col="steelblue")
+pacf(arima1_sim, main="", col="steelblue")
+spectrum(arima1_sim, spans=c(3,3), main="")
+```
+
+#### 그림 4-9 ARIMA (1,1,1)(1,1,1)4 모형에서 생성된 시계열의 특징
+
+```{r}
+library(forecast)
+set.seed(123456)
+nn = 200
+
+model = Arima(ts(rnorm(nn),freq=4), order=c(1,1,1), seasonal=c(1,1,1),
+               fixed=c(phi=0.6, theta=0.6, Phi=0.6, Theta=-0.6))
+sarimasim = ts(simulate(model, nsim=nn))
+
+plot(sarimasim, main="", xlab="", ylab="", col="steelblue")
+
+acf(sarimasim, main="", col="steelblue")
+pacf(sarimasim, main="", col="steelblue")
+spectrum(sarimasim, spans=c(3,3), main="")
+```
+
+```{r}
+library(forecast)
+set.seed(123456)
+nn = 200
+
+model = Arima(ts(rnorm(nn),freq=4), order=c(1,1,1), seasonal=c(1,1,1),
+               fixed=c(phi=0.6, theta=0.6, Phi=0.6, Theta=-0.6))
+sarimasim = ts(simulate(model, nsim=nn))
+
+plot(sarimasim, main="", xlab="", ylab="", col="steelblue")
+
+acf(sarimasim, main="", col="steelblue")
+pacf(sarimasim, main="", col="steelblue")
+spectrum(sarimasim, spans=c(3,3), main="")
+```
+
+```{r}
+library(forecast)
+set.seed(123456)
+nn = 200
+
+model = Arima(ts(rnorm(nn), freq=4), order=c(1,1,1), seasonal=c(1,1,1),
+               fixed=c(phi=-0.6, theta=-0.6, Phi=-0.6, Theta=-0.6))
+sarimasim = ts(simulate(model, nsim=nn))
+
+plot(sarimasim, main="", xlab="", ylab="", col="steelblue")
+
+acf(sarimasim, main="", col="steelblue")
+pacf(sarimasim, main="", col="steelblue")
+spectrum(sarimasim, spans=c(3,3), main="")
+```
+
+#### 비선형 시계열모형
+
+##### 그림 4-10　TAR 모형 시계열의 추이
+
+```{r}
+library(TSA)
+library(locfit)
+set.seed(5)
+tarsim <- tar.sim(n=200, Phi1=c(0, 0.7), Phi2=c(0, -0.9), p=1, d=1, sigma1=1, thd=0.5, sigma2=2)$y
+
+plot(ts(tarsim), xlab="", ylab="", col="steelblue")
+#lagplot(tarsim, method="gam")
+```
+
+##### 그림 4-11　　TAR 모형 시계열의 시차변수 산점도
+```{r}
+library(tsDyn)
+library(sm)
+par(mfrow=c(1,2))
+autopairs(tarsim, lag=1, type="regression")
+autopairs(tarsim, lag=2, type="regression")
+```
+
+#### 그림 4-12　종합주가지수 수익률과 변동성
+
+```{r}
+library(quantmod)
+# Yahoo! Finance로터 종합주가지수 종가 데이터 가져오기 
+kospi <- getSymbols("^KS11", auto.assign = FALSE)[,4]
+kospi_r <- dailyReturn(kospi)
+plot(kospi_r, main="")
+plot(kospi_r^2, main="")
+```
+
+#### 그림 4-13　ARCH(2) 모형 시계열의 시계열도표, 상관도표와 부분상관도표
+#### <프로그램 4-2>
+```{r}
+library("fGarch")
+set.seed(5)
+spec = garchSpec(model = list(alpha = c(0.5, 0.4), beta = 0))
+garchsim= garchSim(spec, n = 200)
+
+garchsim %>% ggtsdisplay(main="", theme=theme_bw())
+```
+
+#### 그림 4-14　ARCH(2) 모형 시계열 제곱항의 시계열도표, 상관도표와 부분상관도표
+```{r}
+garchsim^2 %>% ggtsdisplay(main="", theme=theme_bw())
+```

@@ -1,0 +1,113 @@
+---
+title: "예측방법론 6장"
+output: html_notebook
+---
+
+### 1. 관련된 패키지 불러오기
+
+```{r, message=FALSE, eval=FALSE, results='hide'}
+list_packages = c("forecast", "lubridate", "quantmod", "readxl", "reshape2", "scales", "tidyverse","xts", "zoo", "tseries", "urca","TSA", "FinTS", "fGarch", "car", "orcutt")
+
+new_packages  = list_packages[!(list_packages %in% installed.packages()[,"Package"])]
+if(length(new_packages)) install.packages(new_packages)
+
+invisible(lapply(list_packages, library, character.only = TRUE))
+
+```
+
+### 제6장
+
+#### 그림 6-1　종합주가지수(검정색)와 원/달러 환율(청색)의 추이
+
+```{r}
+koer = read_excel("./data/데이터.xlsx", sheet="주가환율")
+koer_ts = koer[,2:3] %>% ts(start=2001, frequency=12) %>% window(end=2015)
+
+# Fig 6-1
+plot(koer_ts[,1], ylim=c(500, 2500), main="", xlab="", ylab="")
+ lines(koer_ts[,2], col=2)
+ legend("topleft", col=c(1, 2), lty=1, c("원/달러 환율", "종합주가지수"),  bty = "n")
+```
+#### 그림 6-2　종합주가지수(검정색)와 원/달러 환율(청색) 간 산점도
+```{r}
+# Fig 6-2
+plot(koer_ts[,2], koer_ts[,1], xlab="종합주가지수", ylab="원/달러 환율")
+
+cor(na.omit(as.matrix(koer_ts)))
+```
+
+#### 그림 6-3　동행지수 순환변동치와 선행지수 순환변동치 간 교차상관도표
+#### <프로그램 6-1>
+```{r}
+library(tseries)
+bc = read_excel("./data/데이터.xlsx", sheet="경기종합지수")
+#bc_ts = bc[,2:3] %>% ts(start=1970, frequency=12)
+bc_ts = bc[,2:3] %>% ts()
+ccf(bc_ts[,1], bc_ts[,2], lag=12, main=" ")
+
+```
+####  그림 6-4　산업생산지수(제조업) 전기 대비 증감률과 제조업 GDP의 전기 대비 증감률 간 산점도
+
+```{r}
+library(tseries)
+gdp_m = read_excel("./data/데이터.xlsx", sheet="제조업")
+gdp_m_sa_p = gdp_m[,4] %>% ts(start=1980, frequency=4)
+ipi_m_sa_p = gdp_m[,5] %>% ts(start=1980, frequency=4)
+
+plot(ipi_m_sa_p, gdp_m_sa_p, xlab="제조업 산업생산지수 증감률", ylab="제조업 GDP 증감률")
+abline(lm(gdp_m_sa_p~ipi_m_sa_p), col=2)
+
+```
+#### 그림 6-5　경제성장률, 산업생산지수 증감률, 서비스업 생산지수 증감률의 추이
+#### 그림 6-6　경제성장률 회귀분석모형 추정결과
+#### 그림 6-7　경제성장률 모형의 추정값 추이
+#### <프로그램 6-2>
+```{r}
+gdpf = read_excel("./data/데이터.xlsx", sheet="GDP예측")
+
+gdpf_ts = gdpf[,2:7] %>% ts(start=2000, frequency=4) 
+
+gdp_r = gdpf_ts[,4]
+ipi_r = gdpf_ts[,5]
+sbi_r = gdpf_ts[,6]
+
+gr1 = ts.union(gdp_r, ipi_r, sbi_r)
+
+# 그림 6-5
+plot(gr1, main="", xlab="", col="steelblue")
+# 그림 6-6
+gdp_r_lm = lm(gdp_r~ipi_r+sbi_r, data=gr1)
+summary(gdp_r_lm)
+# 그림 6-7
+plot(gdp_r, col="steelblue", ylim=c(-2,10), ylab="", xlab="")
+ lines(ts(predict(gdp_r_lm), start=c(2001,1), freq=4), col=2)
+  legend("topright", col=c(1, 2), lty=1, c("GDP 성장률", "추정값"),  bty = "n")
+```
+#### 그림 6-8　더빈-왓슨 검정 실시결과
+#### <프로그램 6-3>
+```{r}
+library(car)
+durbinWatsonTest(gdp_r_lm)
+```
+#### 그림 6-9　자기시차변수를 포함한 경제성장률 모형의 추정
+#### 그림 6-10　경제성장률 모형 추정값 추이
+#### <프로그램 6-3> 계속
+```{r}
+gr2 = ts.union(gdp_r, ipi_r, sbi_r, gdp_r_1=stats::lag(gdp_r,-1))
+gdp_r_lmc = lm(gdp_r ~ ipi_r+sbi_r+gdp_r_1, data=gr2)
+durbinWatsonTest(gdp_r_lmc)
+summary(gdp_r_lmc)
+
+plot(gdp_r, col="steelblue", ylim=c(-2,10), ylab="", xlab="")
+ lines(ts(predict(gdp_r_lmc), start=c(2001,1), freq=4), col=2)
+```
+#### 그림 6-11　일반화된 시계열모형에 의한 경제성장률 모형의 추정
+#### <프로그램 6-4>
+```{r}
+library(forecast)
+#library(tstools)
+#dum_20092 = create_dummy_ts(start_basic=c(2000,1), end_basic=c(2022,2), dummy_start = c(2009,2), dummy_end=c(2009,2))
+fit = auto.arima(gdp_r, xreg=cbind(ipi_r, sbi_r))
+summary(fit)
+checkresiduals(fit)
+```

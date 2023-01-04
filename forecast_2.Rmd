@@ -1,0 +1,200 @@
+---
+title: "예측방법론 : 2장"
+output: html_notebook
+---
+
+### 1. 관련된 패키지 불러오기
+
+```{r, message=FALSE, eval=FALSE, results='hide'}
+list_packages = c("forecast", "lubridate", "quantmod", "readxl", "reshape2", "scales", "tidyverse","xts", "zoo")
+
+new_packages  = list_packages[!(list_packages %in% installed.packages()[,"Package"])]
+if(length(new_packages)) install.packages(new_packages)
+
+invisible(lapply(list_packages, library, character.only = TRUE))
+
+```
+
+### 제2장
+
+#### 그림 2-1 1인당 국민소득
+
+```{r}
+pergdp = read_excel("./data/데이터.xlsx", sheet="1인당국민소득")
+date_y  = seq(as.Date("1960-01-01"), as.Date("2020-01-01"), "year") 
+pergdp_zoo = zoo(pergdp[,2:10], date_y)
+
+plot(pergdp_zoo[,c(1,5,6)], screens=1, col=c(1,2,4), ylab="1인당 국민소득(달러)", xlab="")
+ legend("topleft", col=c(1, 2, 4), lty=1, c("한국", "아르헨티나", "이탈리아"),  bty = "n")
+```
+
+#### 그림 2-2 실질 GDP 추이: <프로그램 2-1>과  <프로그램 2-2>
+```{r}
+gdp = read_excel("./data/데이터.xlsx", sheet="GDP")
+date_q  = seq(as.Date("1960-01-01"), as.Date("2022-04-01"), "quarter") 
+gdp_zoo = zoo(gdp[,2:3], date_q)
+head(gdp_zoo)
+
+plot(gdp_zoo/1000, screens=1, col=c(2,1), ylab="GDP(조원)", xlab="")
+ legend("topleft", col=c(1, 2), lty=1, c("원계열", "계절조정계열"),  bty = "n")
+```
+#### 그림 2-3 경기종합지수 순환변동치의 추이
+
+```{r}
+bci = read_excel("./data/데이터.xlsx", sheet="경기종합지수")
+date_m  = seq(as.Date("1970-01-01"), as.Date("2022-06-01"), "month") 
+bci_zoo = zoo(bci[,2:3], date_m)
+
+plot(bci_zoo, screens=1, col=1:2, ylab="순환변동치", xlab="")
+ abline(a=100, b=0, lty=2)
+ legend("topright", col=1:2, lty=1, c("동행지수", "선행지수"),  bty = "n")
+``` 
+
+#### 그림 2-4 대전 평균기온의 추이
+
+```{r}
+temp_d = read_excel("./data/데이터.xlsx", sheet="평균기온")
+date_m  = seq(as.Date("2000-01-01"), as.Date("2021-12-01"), "month") 
+temp_d_zoo = zoo(temp_d[,2], date_m)
+
+plot(temp_d_zoo, col="steelblue", ylab="대전 평균기온", xlab="")
+
+``` 
+
+#### 그림 2-5 우리나라 GDP와 로그변환된 GDP 
+
+```{r}
+gdp = read_excel("./data/데이터.xlsx", sheet="GDP")
+gdp_log = cbind(gdp[,2]/1000, log(gdp[,2])/1000)
+ names(gdp_log) = c("계절조정계열", "로그변환계열")
+gdp_log_ts = ts(gdp_log, start=1960, frequency=4)
+
+plot(gdp_log_ts, xlab="", main="", cex.axis=0.8, col="steelblue")
+
+```
+#### 그림 2-6  계절조정 GDP와 전기대비 증감률
+
+```{r}
+gdp = read_excel("./data/데이터.xlsx", sheet="GDP")
+계절조정계열 = ts(gdp[,2]/1000,start=1960, frequency=4) 
+로그차분계열 = diff(gdp_sa)
+gdp_dlog = cbind(계절조정계열, 로그차분계열)
+gdp_dlog_ts = ts(gdp_dlog, start=1960, frequency=4)
+
+plot(gdp_dlog_ts, xlab="", main="", cex.axis=0.9, col="steelblue")
+```
+
+#### 그림 2-7 종합주가지수와 이동평균
+
+```{r}
+#install.packages("quantmod")
+library(quantmod) 
+getSymbols("^KS11",src="yahoo") 
+```
+```{r}
+chartSeries(KS11,name="KOSPI", theme = chartTheme("white", up.col='red',dn.col='blue'), TA = NULL,  minor.ticks=FALSE,
+  subset='2022-03::2022-08')  
+addSMA(n=5, col="red")
+addSMA(n=20, col="blue")
+addSMA(n=60, col="black")
+#addSMA(n=120, col="black")
+
+```
+
+#### 그림 2-8, 2-9 5기, 3기 이동평균(GDP) 
+```{r}
+gdp = read_excel("./data/데이터.xlsx", sheet="GDP")
+
+ww3 = c(1,1,1)/3
+ww5 = c(.5,1,1,1,.5)/4
+
+gdp_ma3 = gdp[,3] %>% stats::filter(sides=2, ww3)
+gdp_ma5 = gdp[,3] %>% stats::filter(sides=2, ww5)
+gdp_ma = cbind(gdp[,3], gdp_ma3, gdp_ma5)
+names(gdp_ma)[2:3] = c('3기 이동평균', '5기 이동평균')        
+                             
+date_q  = seq(as.Date("1960-01-01"), as.Date("2022-04-01"), "quarter") 
+gdp_zoo = zoo(gdp_ma/1000, date_q)
+```
+
+#### 그림 2-8 실질 GDP의 5기 이동평균 추이
+```{r}
+plot(window(gdp_zoo[,c(1,2)], start=as.Date("2010-01-01"),           end=as.Date("2022-06-01")), screens=2, col=1:2, ylab="GDP(조원)", xlab="")
+ legend("topleft", col=1:2, lty=1, c("원계열", "3기이동평균"),  bty = "n")
+```
+
+#### 그림 2-9 실질 GDP의 5기 이동평균 추이
+```{r}
+plot(window(gdp_zoo[,c(1,3)], start=as.Date("2010-01-01"),           end=as.Date("2022-06-01")), screens=1, col=1:2, ylab="GDP(조원)", xlab="")
+ legend("topleft", col=c(1, 2), lty=1, c("원계열", "5기이동평균"),  bty = "n")
+```
+
+#### 그림 2-10 주기가 다른 시계열의 추이
+```{r}
+t = 1:240
+n = length(t)
+f1 = 1/12
+f2 = 1/48
+f3 = 1/96
+
+p_12 = cos(2*pi*f1*t)
+p_48 = cos(2*pi*f2*t)
+p_96 = cos(2*pi*f3*t)
+yy = ts(cbind(p_12,p_48,p_96), start=2000, frequency=12)
+
+plot(yy, main="", xlab="", col="steelblue", cex=0.8)
+```
+
+#### 그림 2-11 cosine계열의 추이
+```{r}
+library(TSA)
+set.seed(123456)
+z = yy[,1]+yy[,2] + rnorm(n)
+plot(z, ylab="", xlab="", col="steelblue")
+
+periodogram(z, col="steelblue")
+abline(h=0)
+abline(v=c(1/12, 1/48), col=2, lty=20)
+```
+
+#### 그림 2-12 백색잡음계열과 스펙트럼
+```{r}
+t = 1:240
+n = length(t)
+set.seed(123456)
+y = ts(rnorm(n), start=2000, frequency=12)
+
+plot(y, col="steelblue", main="")
+spectrum(y, spans=c(3,3), col="steelblue", log=c("no"), main="")
+```
+
+#### 그림 2-13 GDP와 스펙트럼
+
+```{r}
+gdp = read_excel("./data/데이터.xlsx", sheet="GDP")
+
+gdp_ts = ts(gdp[,2:3]/1000, start=1960, frequency=4)
+`
+spectrum(gdp_ts, spans=c(3,3), col=c("red", "steelblue"), lwd=c(1.5, 1.5), lty=c(1,20), main="")
+ legend("topright", col=c("steelblue", "red"), lty=c(20,1), lwd=1.5,c("원계열", "계절조정계열"),  bty = "n")
+ 
+```
+#### 그림 2-14 GDP의 로그 1차 차분계열과 로그 4차 차분계열의 스펙트럼
+#### <프로그램 2-3>
+
+
+```{r}
+gdp = read_excel("./data/데이터.xlsx", sheet="GDP")
+
+gdp_ts = ts(gdp[,2:3]/1000, start=1960, frequency=4) 
+dlgdp_1 = diff(log(gdp_ts[,2]))
+dlgdp_4 = diff(log(gdp_ts[,2]),4)
+dlgdp = cbind(dlgdp_1, dlgdp_4)
+plot(dlgdp_1, col="steelblue", xlab="", ylab="")
+ lines(dlgdp_4, col=2, lwd=1.5)
+ legend("topright", col=c("steelblue", "red"),  c("1차차분", "4차차분"), lty=1, bty = "n")
+ 
+spectrum(na.omit(dlgdp), spans=c(3,3), col=c("red", "steelblue"), main="", lty=c(20,1), lwd=1.5)
+ legend("topright", col=c("steelblue", "red"), lty=c(1,20), lwd=1.5, c("1차차분", "4차차분     "),  bty = "n")
+ 
+```
