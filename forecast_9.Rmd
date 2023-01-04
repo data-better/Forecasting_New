@@ -1,0 +1,35 @@
+---
+title: "예측방법론 9장"
+output: html_notebook
+---
+
+### 1. 관련된 패키지 불러오기
+### (프로그램 9-1) 패키지 설치 및 시계열 불러오기 
+
+```{r, message=FALSE, eval=FALSE, results='hide'}
+#install.packages("tseries") 
+#install.packages("vars") 
+ library(tseries)
+ library(vars)
+ 
+ tb35y=read.ts("./data/rate35y.csv", start=1996, frequency=12, header=TRUE, sep=",")
+```
+
+#### (프로그램 9-2) 공적분 검정 
+#### 그림 9-2　요한슨 공적분검정 결과
+```{r}
+vecm = ca.jo(tb35y, type="trace", ecdet="const", K=3)
+ summary(vecm)
+```
+#### (프로그램 9-3) VAR 모형으로의 변환 
+#### 그림 9-3　벡터 오차수정모형 추정결과
+```{r}
+ var.vecm = vec2var(vecm, r=1)
+ var.vecm 
+```
+#### (프로그램 9-4) 벡터 오차수정모형을 이용한 예측
+#### 그림 9-4　벡터 오차수정모형을 이용한 예측결과
+```{r}
+predict.vecm = predict(var.vecm, n.ahead = 12, ci=0.95)
+ plot(predict.vecm, col="pink")
+```

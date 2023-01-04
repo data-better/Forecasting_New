@@ -1,0 +1,107 @@
+---
+title: "예측방법론 10장"
+output: html_notebook
+---
+
+### 1. 관련된 패키지 불러오기
+
+```{r, message=FALSE, eval=FALSE, results='hide'}
+list_packages = c("forecast", "lubridate", "quantmod", "readxl", "reshape2", "tidyverse","xts", "zoo", "tseries",  "tseries", "mFilter", "prophet", "forecastHybrid")
+
+new_packages  = list_packages[!(list_packages %in% installed.packages()[,"Package"])]
+if(length(new_packages)) install.packages(new_packages)
+
+invisible(lapply(list_packages, library, character.only = TRUE))
+
+```
+
+#### 그림 10-1　승법형 윈터스 지수평활법에 의한 GDP 예측
+#### <프로그램 10-1> 
+```{r}
+GDP = read_excel("./data/데이터.xlsx", sheet="GDP")  
+gdp_ts = GDP[,3] %>% ts(start=1960, frequency=4) %>% window(start=2000)
+
+gdp_hw_fit = hw(gdp_ts/1000,seasonal="mult", fan=TRUE, h=12)
+#summary(gdp_hw_fit)
+autoplot(gdp_ts/1000) +
+  autolayer(gdp_hw_fit) +
+  xlab("") +  ylab("GDP(조원)") + theme_bw()
+```
+#### 그림 10-2　프로펫에 의한 GDP 예측
+#### <프로그램 10-3>
+```{r}
+library(tsibble)
+library(fable.prophet)
+GDP = read_excel("./data/데이터.xlsx", sheet="GDP")  
+gdp_ts = GDP[,3] %>% ts(start=1960, frequency=4) %>%window(start=1970)  %>% as_tsibble
+ names(gdp_ts)[2] = "GDP"
+ gdp_ts[,2] = gdp_ts[,2]/1000
+gdp_fit = gdp_ts %>% 
+  model(
+    mdl = prophet(GDP ~ growth("linear") + season("year", type = "multiplicative")) )
+ components(gdp_fit) %>% autoplot()
+gdp_fc = gdp_fit %>% forecast(h = "3 years")
+gdp_fc %>% autoplot(gdp_ts) + xlab("") + theme_bw()
+
+```
+#### 그림 10-5　NNAR 모형에 의한 GDP 예측
+#### <프로그램 10-2>
+```{r}
+library(tsibble)
+library(fable)
+GDP = read_excel("./data/데이터.xlsx", sheet="GDP")  
+gdp_ts = GDP[,3] %>% ts(start=1960, frequency=4) %>%window(start=1970)  %>% as_tsibble
+names(gdp_ts)[2] = "GDP"
+gdp_ts[,2] = gdp_ts[,2]/1000
+
+fit = gdp_ts %>%
+  model(NNETAR(GDP, p=4, P=1, lambda=0))
+forc = fit %>% forecast(h = 12) 
+  forc %>% autoplot(gdp_ts) +
+  labs(x = "", y = "GDP", title = "") + theme_bw()
+```
+####  그림 10-6　예측모형별 CO2 예측 : 안면도 CO2 ppm
+#### <프로그램 10-4>
+```{r}
+co2 = read_excel("./data/데이터.xlsx", sheet="CO2")  
+
+co2_ts = co2[,2] %>% ts(start=c(1999,1), frequency=12)
+ co2_train = co2_ts %>% window(end=c(2019,12))
+ co2_test  = co2_ts %>% window(start=c(2020,1))
+ h1         = length(co2_test)
+
+# plot(co2_ts, xlab="", ylab="CO2(ppm)", col="steelblue")
+```
+
+```{r}
+library(forecastHybrid)
+Model_1 = hybridModel(co2_train, models = "aes", weights="equal", lambda=0)
+Model_2 = hybridModel(co2_train, models = "aes", weights="insample.errors", lambda=0)
+
+DATA   = co2_ts   
+ARIMA  = forecast::forecast(Model_1$auto.arima, h=h1)
+ETS    = forecast::forecast(Model_1$ets, h=h1)
+STL    = forecast::forecast(Model_1$stlm, h=h1)
+
+ALL = cbind(DATA, ARIMA=ARIMA$mean, 지수평활법=ETS$mean,STL=STL$mean)
+
+ALL %>% autoplot() + xlab("") + ylab("CO2(ppm)") + theme_bw()
+
+fc_1 = forecast::forecast(Model_1, h=h1)
+fc_2 = forecast::forecast(Model_2, h=h1)
+
+par(mfrow=c(1,1))
+plot(fc_1, main="(a) 동일 가중")
+ lines(co2_ts, col=1)
+
+plot(fc_2, main="(b) 적합 가중")
+ lines(co2_ts, col=1)
+
+mse <- c( Hybrid1=mean((co2_test - fc_1$mean)^2),
+          Hybrid2=mean((co2_test - fc_2$mean)^2),
+          ETS=mean((co2_test-ETS$mean)^2),
+          ARIMA=mean((co2_test-ARIMA$mean)^2),
+          STL=mean((co2_test-STL$mean)^2))
+          
+round(mse,4)
+```

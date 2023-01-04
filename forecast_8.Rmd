@@ -1,0 +1,49 @@
+---
+title: "예측방법론 8장"
+output: html_notebook
+---
+
+### 1. 관련된 패키지 불러오기
+### (프로그램 8-1) 패키지 tseries, vars 설치 및 저장 
+
+```{r, message=FALSE, eval=FALSE, results='hide'}
+ install.packages("tseries") 
+ install.packages("vars") 
+ library(tseries)
+ library(vars)
+```
+
+#### (프로그램 8-2) 시계열 읽기 및 VAR 모형의 추정
+#### 그림 8-1　VAR 모형 추정결과
+```{r}
+m1gdp=read.ts("./data/m1gdp.csv", start=1971, frequency=4, header=TRUE, sep=",")
+ VAR(m1gdp, p=4, type="const")
+```
+
+#### (프로그램 8-3) VAR 모형을 이용한 인과관계검정 
+#### 표 8-1　인과관계검정 분석결과
+```{r}
+var=VAR(m1gdp, p=4, type="const")
+ causality(var, cause="M1")
+ causality(var, cause="GDP")
+```
+#### (프로그램 8-4) VAR 모형을 이용한 충격반응함수의 도출 
+#### 그림 8-2　충격반응함수 산출결과
+```{r}
+var=VAR(m1gdp, p=4, type="const")
+ irf.var = irf(var, n.ahead=8, ortho=TRUE, boot=FALSE)
+ plot(irf.var, col="purple")
+
+```
+#### (프로그램 8-5) VAR 모형을 이용한 예측오차 분산분해 
+#### 그림 8-3　예측오차 분산분해
+```{r}
+fevd.var = fevd(var, n.ahead=8, ortho=TRUE, boot=FALSE)  
+ plot(fevd.var)
+```
+#### (프로그램 8-6) VAR 모형을 이용한 예측 
+#### 그림 8-4　VAR 모형을 이용한 예측
+```{r}
+predict.var = predict(var, n.ahead=12, ci=0.95)
+ plot(predict.var, col="purple")
+```
