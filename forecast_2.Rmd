@@ -77,7 +77,7 @@ plot(gdp_log_ts, xlab="", main="", cex.axis=0.8, col="steelblue")
 ```{r}
 gdp = read_excel("./data/데이터.xlsx", sheet="GDP")
 계절조정계열 = ts(gdp[,2]/1000,start=1960, frequency=4) 
-로그차분계열 = diff(log(계절조정계열))
+로그차분계열 = diff(log(계절조정계열))*100
 gdp_dlog = cbind(계절조정계열, 로그차분계열)
 gdp_dlog_ts = ts(gdp_dlog, start=1960, frequency=4)
 
@@ -199,4 +199,5 @@ spectrum(na.omit(dlgdp), spans=c(3,3), col=c("red", "steelblue"), main="", lty=c
  
 
 ```
+
 
